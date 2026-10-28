@@ -1,13 +1,13 @@
 {
-  "name": "study-proxy",
+  "name": "study-search-redirect",
   "version": "1.0.0",
+  "private": true,
+  "description": "A fixed-destination search redirect for the Study frontend.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.0.0",
-    "express": "^4.19.2",
-    "node-fetch": "^2.6.11"
+    "express": "^4.21.2"
   }
 }
