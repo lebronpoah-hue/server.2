@@ -47,33 +47,6 @@ app.get("/proxy", async (req, res) => {
   }
 });
 
-app.post("/proxy", async (req, res) => {
-  try {
-    const target = req.body.url;
-    if (!target) {
-      return res.status(400).json({ error: "Missing url in body" });
-    }
-
-    const response = await fetch(target, {
-      method: req.body.method || "POST",
-      headers: req.body.headers || {},
-      body: req.body.body || undefined,
-      redirect: "follow",
-    });
-
-    const contentType =
-      response.headers.get("content-type") || "text/plain; charset=utf-8";
-    const text = await response.text();
-
-    res.set("Content-Type", contentType);
-    res.set("Access-Control-Allow-Origin", "*");
-    res.status(response.status).send(text);
-  } catch (err) {
-    console.error("proxy post error:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.options("/proxy", (req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
@@ -86,5 +59,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("Proxy server running on port " + PORT);
+  console.log("Proxy running on port " + PORT);
 });
