@@ -1,63 +1,66 @@
-const express = require("express");
-const cors = require("cors");
-const fetch = require("node-fetch");
+'use strict';
+
+const express = require('express');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
+const MAX_QUERY_LENGTH = 200;
 
-app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true }));
+const SEARCH_ENGINES = Object.freeze({
+  duckduckgo: {
+    buildUrl: (query) =>
+      `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+  },
+  google: {
+    buildUrl: (query) =>
+      `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+  },
+  bing: {
+    buildUrl: (query) =>
+      `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+  },
+});
 
-app.get("/proxy", async (req, res) => {
-  try {
-    const target = req.query.url;
-    if (!target) {
-      return res.status(400).json({ error: "Missing ?url=" });
-    }
+app.disable('x-powered-by');
 
-    const response = await fetch(target, {
-      method: "GET",
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-      },
-      redirect: "follow",
-    });
+app.get('/health', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.status(200).json({ ok: true, service: 'study-search-redirect' });
+});
 
-    const contentType =
-      response.headers.get("content-type") || "text/html; charset=utf-8";
+app.get('/api/search', (req, res) => {
+  const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const engine = typeof req.query.engine === 'string'
+    ? req.query.engine.toLowerCase()
+    : 'duckduckgo';
 
-    res.set("Content-Type", contentType);
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-    res.set("Access-Control-Allow-Headers", "*");
-
-    const text = await response.text();
-    res.status(response.status).send(text);
-  } catch (err) {
-    console.error("proxy error:", err);
-    res.status(500).send(
-      "<html><body><h1>Proxy Error</h1><p>" +
-        String(err.message) +
-        "</p></body></html>"
-    );
+  if (!query) {
+    return res.status(400).json({ error: 'A search query is required.' });
   }
+
+  if (query.length > MAX_QUERY_LENGTH) {
+    return res.status(413).json({
+      error: `Search queries must be ${MAX_QUERY_LENGTH} characters or fewer.`,
+    });
+  }
+
+  const selectedEngine = SEARCH_ENGINES[engine];
+  if (!selectedEngine) {
+    return res.status(400).json({ error: 'Unsupported search engine.' });
+  }
+
+  res.set({
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+  });
+
+  return res.redirect(303, selectedEngine.buildUrl(query));
 });
 
-app.options("/proxy", (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  res.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.set("Access-Control-Allow-Headers", "*");
-  res.sendStatus(204);
+app.get('/', (_req, res) => {
+  res.status(200).type('text/plain').send('Study search redirect is running.');
 });
 
-app.get("/", (req, res) => {
-  res.send("Proxy server is running");
-});
-
-app.listen(PORT, () => {
-  console.log("Proxy running on port " + PORT);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Study search redirect listening on port ${PORT}`);
 });
