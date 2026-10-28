@@ -1,5 +1,5 @@
 const express = require('express');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
@@ -12,6 +12,7 @@ app.get('/api/search', async (req, res) => {
   }
 
   let target = '';
+
   if (engine === 'duckduckgo') {
     target = 'https://duckduckgo.com/?q=' + encodeURIComponent(q);
   } else if (engine === 'google') {
@@ -39,7 +40,7 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('Server running on port ' + PORT);
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log('Server running on port ' + port);
 });
