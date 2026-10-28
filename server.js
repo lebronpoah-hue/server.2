@@ -1,66 +1,45 @@
-'use strict';
-
 const express = require('express');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
-const MAX_QUERY_LENGTH = 200;
 
-const SEARCH_ENGINES = Object.freeze({
-  duckduckgo: {
-    buildUrl: (query) =>
-      `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
-  },
-  google: {
-    buildUrl: (query) =>
-      `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-  },
-  bing: {
-    buildUrl: (query) =>
-      `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
-  },
-});
+app.get('/api/search', async (req, res) => {
+  const engine = (req.query.engine || 'duckduckgo').toLowerCase();
+  const q = String(req.query.q || '').trim();
 
-app.disable('x-powered-by');
-
-app.get('/health', (_req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.status(200).json({ ok: true, service: 'study-search-redirect' });
-});
-
-app.get('/api/search', (req, res) => {
-  const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
-  const engine = typeof req.query.engine === 'string'
-    ? req.query.engine.toLowerCase()
-    : 'duckduckgo';
-
-  if (!query) {
-    return res.status(400).json({ error: 'A search query is required.' });
+  if (!q) {
+    return res.status(400).send('Missing q');
   }
 
-  if (query.length > MAX_QUERY_LENGTH) {
-    return res.status(413).json({
-      error: `Search queries must be ${MAX_QUERY_LENGTH} characters or fewer.`,
+  let target = '';
+  if (engine === 'duckduckgo') {
+    target = 'https://duckduckgo.com/?q=' + encodeURIComponent(q);
+  } else if (engine === 'google') {
+    target = 'https://www.google.com/search?q=' + encodeURIComponent(q);
+  } else if (engine === 'bing') {
+    target = 'https://www.bing.com/search?q=' + encodeURIComponent(q);
+  } else {
+    return res.status(400).send('Unsupported engine');
+  }
+
+  try {
+    const upstream = await fetch(target, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+      }
     });
+
+    const html = await upstream.text();
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Search fetch failed');
   }
-
-  const selectedEngine = SEARCH_ENGINES[engine];
-  if (!selectedEngine) {
-    return res.status(400).json({ error: 'Unsupported search engine.' });
-  }
-
-  res.set({
-    'Cache-Control': 'no-store',
-    'Referrer-Policy': 'no-referrer',
-  });
-
-  return res.redirect(303, selectedEngine.buildUrl(query));
 });
 
-app.get('/', (_req, res) => {
-  res.status(200).type('text/plain').send('Study search redirect is running.');
-});
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Study search redirect listening on port ${PORT}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log('Server running on port ' + PORT);
 });
